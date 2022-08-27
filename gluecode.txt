@@ -1,0 +1,42 @@
+import sys
+from awsglue.transforms import *
+from awsglue.utils import getResolvedOptions
+from pyspark.context import SparkContext
+from awsglue.context import GlueContext
+from awsglue.dynamicframe import DynamicFrame
+from awsglue.job import Job
+from pyspark.sql import *
+from pyspark.sql.functions import *
+import re
+args = getResolvedOptions(sys.argv, ["JOB_NAME"])
+sc = SparkContext()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+job = Job(glueContext)
+job.init(args["JOB_NAME"], args)
+#get data from crawler and create dynamic dataframe
+datasource=glueContext.create_dynamic_frame.from_catalog(database="gluedb",table_name="10000records_csv")
+
+#dynamic frame convert to dataframe
+df=datasource.toDF()
+
+#data cleaning---remove special characters from headers /schema
+cols=[re.sub('[^a-zA-Z0-9]','',x) for x in df.columns]
+ndf=df.toDF(*cols)
+#ndf.show(4)
+
+#processing----find who is youngest fellow
+res=ndf.withColumn('DateofBirth',to_date(col('DateofBirth'),'M/d/yyyy')).\
+    withColumn('today',current_date()).withColumn('diff',datediff(col('today'),col('DateofBirth'))).\
+    orderBy(col("diff").desc())
+#convert dataframe to dynamic ddataframe
+fres=DynamicFrame.fromDF(res,glueContext,"result")
+
+#store data in s3
+s3path="s3://karan2020/input/glue2data"
+glueContext.write_dynamic_frame.from_options(frame=fres,connection_type='s3',connection_options={"path":s3path},format='csv',transformation_ctx="datasink1")
+
+#store data in mysql
+glueContext.write_dynamic_frame.from_options(frame=fres,connection_type='mysql',connection_options={"url":"jdbc:mysql://karandb.cnhtjdwvatxj.ap-south-1.rds.amazonaws.com:3306/mysqldb","user":"myuser","password":"mypassword","dbtable":"gluedata"})
+
+job.commit()
