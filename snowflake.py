@@ -4,8 +4,8 @@ from pyspark.sql.functions import *
 from pyspark.sql.types import *
 spark=SparkSession.builder.master("local").enableHiveSupport().appName("test").getOrCreate()
 sfoptions={"sfurl":"yb65986.ap-southeast-1.snowflakecomputing.com",
-           "sfuser":"karan",
-           "sfpassword":"Data@2022",
+           "sfuser":"xxx",
+           "sfpassword":"xxxxx",
            "sfDatabase":"KARANDB",
            "sfSchema":"PUBLIC",
            "sfWarehouse":"SPARKNEW" }
