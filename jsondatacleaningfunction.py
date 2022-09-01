@@ -4,15 +4,14 @@ from pyspark.sql.functions import *
 from pyspark.sql.types import *
 import re
 spark = SparkSession.builder.master("local[2]").appName("test").getOrCreate()
-data="E:\\Datasets\\zips.json"
+data="E:\\Datasets\\world_bank.json"
 df=spark.read.format("json").option("multiLine","true").load(data)
-
-
+df.printSchema()
 def read_nested_json(df):
     column_list = []
     for column_name in df.schema.names:
         if isinstance(df.schema[column_name].dataType, ArrayType):
-            df = df.withColumn(column_name, explode(column_name))
+            df = df.withColumn(column_name, explode(column_name).alias(column_name))
             column_list.append(column_name)
         elif isinstance(df.schema[column_name].dataType, StructType):
             for field in df.schema[column_name].dataType.fields:
@@ -20,23 +19,22 @@ def read_nested_json(df):
         else:
             column_list.append(column_name)
     df = df.select(column_list)
-    return df;
+    return df
 
 
-def flatten(df):
-    read_nested_json_flag = True
-    while read_nested_json_flag:
-        df = read_nested_json(df);
-        read_nested_json_flag = False
-        for column_name in df.schema.names:
-            if isinstance(df.schema[column_name].dataType, ArrayType):
-                read_nested_json_flag = True
-            elif isinstance(df.schema[column_name].dataType, StructType):
-                read_nested_json_flag = True;
-    cols = [re.sub('[^a-zA-Z0-1]', "", c.lower()) for c in df.columns]
-    return df.toDF(*cols);
-
-ndf=flatten(df)
+is_all_columns_flattened = False
+while not is_all_columns_flattened:
+    # existing columns are flattened and appended to the schema columns
+    df = read_nested_json(df)
+    is_all_columns_flattened = True
+    # check till all new columns are flattened
+    for column_name in df.schema.names:
+        if isinstance(df.schema[column_name].dataType, ArrayType):
+            is_all_columns_flattened = False
+        elif isinstance(df.schema[column_name].dataType, StructType):
+            is_all_columns_flattened = False
+cols = [re.sub('[^a-zA-Z0-9]', "", c.lower()) for c in df.columns]
+ndf=df.toDF(*cols)
 ndf.printSchema()
 ndf.show()
 ##ref: https://github.com/maroovi/aws_etl/blob/23d5af070f6c605852ff91fdf0f28423548f59e5/glue.py
