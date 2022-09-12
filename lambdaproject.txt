@@ -1,0 +1,64 @@
+1)Get data from s3/new folder using lambda triggered service and write this data in s3/output1 folder
+with same name as client store file in s3/new folder
+
+import boto3
+import pandas as pd
+import s3fs
+import fsspec
+
+def lambda_handler(event, context):
+    # Retrive file name
+    s3filename=event['Records'][0]['s3']['object']['key']
+    #print(s3filename)   this gives new/asl.csv
+    lst=s3filename.split('/')
+    #print(lst[1])   -->asl.csv
+    filename=lst[1]
+    s3=boto3.client('s3')
+    
+    #read file from s3/new folder(client put files here)
+    df=pd.read_csv('s3://karan2020/new/{}'.format(filename))
+    print(df)
+    
+    #write this in s3/output folder
+    df.to_csv('s3://karan2020/output1/{}'.format(filename))
+    
+
+2) Get data from s3/new2 folder as per date(ex client filename=data04sept....)
+  if todays date is 04 sept then fetch only data04sept file...
+ and further load this file in s3/output2 folder with same name as client puts file in s3/new2 folder
+
+import boto3
+import pandas as pd
+import s3fs
+import fsspec
+import datetime
+
+def lambda_handler(event, context):
+   
+    # Retrive file name
+    s3filename=event['Records'][0]['s3']['object']['key']
+    print(s3filename)   #this gives new2/data10Sep.csv
+    lst=s3filename.split('/')
+    #print(lst[1])   #-->data10Sep.csv
+    filename=lst[1]
+    
+    s3=boto3.client('s3')
+    
+    dt=datetime.datetime.today()
+    frmt=dt.strftime('%d')+dt.strftime('%b')
+    #print(frmt)
+    #print('data'+frmt+'.csv')
+    
+    if ('data'+frmt+'.csv')==filename:
+        print('match')
+        #read file from s3/new folder(client put files here)
+        df=pd.read_csv('s3://karan2020/new2/{}'.format(filename))
+        print(df)
+    
+        #write this in s3/output folder
+        df.to_csv('s3://karan2020/output2/{}'.format(filename))
+    
+    else:
+        print('today no file is uploaded by client.....enjoy')
+   
+    
